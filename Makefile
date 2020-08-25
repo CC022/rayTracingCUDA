@@ -11,13 +11,13 @@ rayTracing: main.o
 main.o: $(SRCS) $(INCS)
 	$(NVCC) -o main.o -c main.cu
 
-PPM.ppm: rayTracing
-	rm -f PPM.ppm
-	./rayTracing > PPM.ppm
+img.ppm: rayTracing
+	rm -f img.ppm
+	./rayTracing
 
-JPG.jpg: PPM.ppm
-	rm -f JPG.jpg
-	ppmtojpeg PPM.ppm > JPG.jpg
+img: img.ppm rayTracing
+	rm -f img.jpg
+	ppmtojpeg img.ppm > img.jpg
 
 clean:
-	rm -f rayTracing main.o PPM.ppm JPG.jpg
+	rm -f rayTracing main.o img.ppm img.jpg
