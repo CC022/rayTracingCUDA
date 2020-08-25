@@ -1,3 +1,4 @@
 rayTracing
 *.o
 img.*
+.vscode
