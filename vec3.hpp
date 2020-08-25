@@ -2,6 +2,7 @@
 #include <iostream>
 #include <math.h>
 #include <stdlib.h>
+#include <algorithm>
 
 class vec3 {
 public:
@@ -133,4 +134,23 @@ __host__ __device__ inline vec3& vec3::operator/=(const float t) {
 
 __host__ __device__ inline vec3 unit_vector(vec3 v) {
     return v / v.length();
+}
+
+// Type aliases
+using point3 = vec3;
+using color = vec3;
+
+void writeColor(std::ostream &outStream, color pixelColor, int samplesPerPixel) {
+    auto r = pixelColor.r();
+    auto g = pixelColor.g();
+    auto b = pixelColor.b();
+    // Replace NaN components with zero. See explanation in Ray Tracing: The Rest of Your Life.
+    if (r != r) r = 0.0;
+    if (g != g) g = 0.0;
+    if (b != b) b = 0.0;
+    auto scale = 1.0 / samplesPerPixel;
+    r = sqrt(scale * r); // gamma=2.0
+    g = sqrt(scale * g); // gamma=2.0
+    b = sqrt(scale * b); // gamma=2.0
+    outStream << static_cast<int>(255.99 * r)  << ' ' << static_cast<int>(255.99 * g)  << ' ' << static_cast<int>(255.99 * b) << "\n";
 }

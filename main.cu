@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
+#include <cmath>
 #include "vec3.hpp"
 
 #define CHECKCUDA(val) checkCuda((val), #val, __FILE__, __LINE__)
@@ -44,10 +45,7 @@ int main() {
     for (int y = height-1; y >= 0; y--) {
         for (int x = 0; x < width; x++) {
             int pixelIdx = y * width + x;
-            int ir = int(255.99 * image[pixelIdx].r());
-            int ig = int(255.99 * image[pixelIdx].g());
-            int ib = int(255.99 * image[pixelIdx].b());
-            imgFile << ir << " " << ig << " " << ib << "\n";
+            writeColor(imgFile, image[pixelIdx], 1);
         }
     }
     CHECKCUDA(cudaFree(image));
