@@ -14,7 +14,19 @@ void checkCuda(cudaError_t result, char const *const func, const char *const fil
     }
 }
 
+__device__ bool hit_sphere(const point3 &center, float radius, const ray &r) {
+    vec3 oc = r.origin() - center;
+    auto a = dot(r.direction(), r.direction());
+    auto b = 2.0 * dot(oc, r.direction());
+    auto c = dot(oc, oc) - radius * radius;
+    auto discriminant  = b*b - 4*a*c;
+    return (discriminant > 0);
+}
+
 __device__ color ray_color(const ray &r) {
+    if (hit_sphere(point3(0,0,-1), 0.5, r)) {
+        return color(0, 1, 1);
+    }
     vec3 unit_direction = unit_vector(r.direction());
     auto t = 0.5*(unit_direction.y() + 1.0);
     return (1.0-t)*color(1.0,1.0,1.0) + t*color(0.5,0.7,1.0);
@@ -31,6 +43,7 @@ __global__ void render(vec3 *image, int width, int height, vec3 lowerLeftCorner,
 
 int main() {
     using namespace std;
+    clock_t start, stop;
     int width = 1200;
     int height = 600;
     int blockSize = 8;
@@ -54,9 +67,12 @@ int main() {
 
     dim3 blocks(width/blockSize + 1, height/blockSize + 1);
     dim3 threads(blockSize, blockSize);
+    start = clock();
     render<<<blocks, threads>>>(image, width, height, lowerLeftCorner, horizontal, vertical, origin);
     CHECKCUDA(cudaGetLastError());
     CHECKCUDA(cudaDeviceSynchronize());
+    stop = clock();
+    cout << "kernal took " << (stop - start)/CLOCKS_PER_SEC << " seconds\n";
 
     ofstream imgFile("img.ppm");
     imgFile << "P3\n" << width << " " << height << "\n255\n";
