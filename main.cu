@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include <time.h>
+#include <chrono>
 #include <cmath>
 #include "vec3.hpp"
 #include "ray.hpp"
@@ -43,11 +43,9 @@ __global__ void render(vec3 *image, int width, int height, vec3 lowerLeftCorner,
 
 int main() {
     using namespace std;
-    clock_t start, stop;
     int width = 1200;
     int height = 600;
     int blockSize = 8;
-
     cout << "Image size " << width << " x " << height << " BlockSize " << blockSize << endl;
 
     //Camera
@@ -67,12 +65,12 @@ int main() {
 
     dim3 blocks(width/blockSize + 1, height/blockSize + 1);
     dim3 threads(blockSize, blockSize);
-    start = clock();
+    chrono::steady_clock::time_point start = chrono::steady_clock::now();
     render<<<blocks, threads>>>(image, width, height, lowerLeftCorner, horizontal, vertical, origin);
     CHECKCUDA(cudaGetLastError());
     CHECKCUDA(cudaDeviceSynchronize());
-    stop = clock();
-    cout << "kernal took " << (stop - start)/CLOCKS_PER_SEC << " seconds\n";
+    chrono::steady_clock::time_point stop = chrono::steady_clock::now();
+    cout << "Kernal took " << chrono::duration_cast<std::chrono::microseconds>(stop - start).count() << " ms\n";
 
     ofstream imgFile("img.ppm");
     imgFile << "P3\n" << width << " " << height << "\n255\n";
