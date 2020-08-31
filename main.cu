@@ -2,6 +2,7 @@
 #include <fstream>
 #include <chrono>
 #include <cmath>
+#include <thrust/host_vector.h>
 #include "vec3.hpp"
 #include "ray.hpp"
 
