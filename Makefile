@@ -1,5 +1,5 @@
 CUDA_PATH ?= /usr/local/cuda
-HOST_COMPILER = g++
+HOST_COMPILER = clang
 NVCC = $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
 
 SRCS = main.cu

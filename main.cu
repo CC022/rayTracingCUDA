@@ -1,10 +1,13 @@
 #include <iostream>
 #include <fstream>
+#include <float.h>
 #include <chrono>
 #include <cmath>
-#include <thrust/host_vector.h>
 #include "vec3.hpp"
 #include "ray.hpp"
+#include "hittable.hpp"
+#include "hittable_list.hpp"
+#include "sphere.hpp"
 
 #define CHECKCUDA(val) checkCuda((val), #val, __FILE__, __LINE__)
 void checkCuda(cudaError_t result, char const *const func, const char *const file, int const line) {
@@ -15,39 +18,58 @@ void checkCuda(cudaError_t result, char const *const func, const char *const fil
     }
 }
 
-__device__ bool hit_sphere(const point3 &center, float radius, const ray &r) {
-    vec3 oc = r.origin() - center;
-    auto a = dot(r.direction(), r.direction());
-    auto b = 2.0 * dot(oc, r.direction());
-    auto c = dot(oc, oc) - radius * radius;
-    auto discriminant  = b*b - 4*a*c;
-    return (discriminant > 0);
-}
-
-__device__ color ray_color(const ray &r) {
-    if (hit_sphere(point3(0,0,-1), 0.5, r)) {
-        return color(0, 1, 1);
+__device__ color ray_color(const ray &r, hittable_list **world) {
+    hit_record rec;
+    if ((*world)->hit(r, 0.0, FLT_MAX, rec)) {
+        return 0.5f*vec3(rec.normal.x()+1.0f, rec.normal.y()+1.0f, rec.normal.z()+1.0f);
     }
-    vec3 unit_direction = unit_vector(r.direction());
-    auto t = 0.5*(unit_direction.y() + 1.0);
-    return (1.0-t)*color(1.0,1.0,1.0) + t*color(0.5,0.7,1.0);
+    else {
+        vec3 unit_direction = unit_vector(r.direction());
+        float t = 0.5f*(unit_direction.y() + 1.0f);
+        return (1.0f-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+    }
 }
 
-__global__ void render(vec3 *image, int width, int height, vec3 lowerLeftCorner, vec3 horizontal, vec3 vertical, vec3 origin) {
+__global__ void render(vec3 *image, int width, int height, vec3 lowerLeftCorner, vec3 horizontal, vec3 vertical, vec3 origin, 
+    hittable_list **world) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
     if ((x >= width)||(y >= height)) return;
     int pixelIdx = y * width + x;
     ray r(origin, lowerLeftCorner + float(x)/float(width)*horizontal + float(y)/float(height)*vertical);
-    image[pixelIdx] = ray_color(r);
+    image[pixelIdx] = ray_color(r, world);
+}
+
+__global__ void create_world(hittable **d_list, hittable_list **d_world) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        *(d_list)   = new sphere(vec3(0,0,-1), 0.5);
+        *(d_list+1) = new sphere(vec3(0,-100.5,-1), 100);
+        *d_world    = new hittable_list(d_list,2);
+    }
+}
+
+__global__ void free_world(hittable **d_list, hittable_list **d_world) {
+    delete *(d_list);
+    delete *(d_list+1);
+    delete *d_world;
 }
 
 int main() {
+    // Image
     using namespace std;
     int width = 1200;
     int height = 600;
     int blockSize = 8;
     cout << "Image size " << width << " x " << height << " BlockSize " << blockSize << endl;
+
+    // World
+    hittable **d_list;
+    CHECKCUDA(cudaMallocManaged((void **)&d_list, 2*sizeof(hittable *)));
+    hittable_list **d_world;
+    CHECKCUDA(cudaMallocManaged((void **)&d_world, sizeof(hittable *)));
+    create_world<<<1,1>>>(d_list,d_world);
+    CHECKCUDA(cudaGetLastError());
+    CHECKCUDA(cudaDeviceSynchronize());
 
     //Camera
     auto aspectRatio = width / height;
@@ -67,7 +89,7 @@ int main() {
     dim3 blocks(width/blockSize + 1, height/blockSize + 1);
     dim3 threads(blockSize, blockSize);
     chrono::steady_clock::time_point start = chrono::steady_clock::now();
-    render<<<blocks, threads>>>(image, width, height, lowerLeftCorner, horizontal, vertical, origin);
+    render<<<blocks, threads>>>(image, width, height, lowerLeftCorner, horizontal, vertical, origin, d_world);
     CHECKCUDA(cudaGetLastError());
     CHECKCUDA(cudaDeviceSynchronize());
     chrono::steady_clock::time_point stop = chrono::steady_clock::now();
@@ -83,5 +105,6 @@ int main() {
         }
     }
     CHECKCUDA(cudaFree(image));
+    free_world<<<1,1>>>(d_list,d_world);
     return 0;
 }
