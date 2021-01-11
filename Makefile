@@ -1,15 +1,16 @@
 CUDA_PATH ?= /usr/local/cuda
 HOST_COMPILER = clang
 NVCC = $(CUDA_PATH)/bin/nvcc -ccbin $(HOST_COMPILER)
+GENCODE_FLAGS  = -gencode arch=compute_75,code=sm_75
 
 SRCS = main.cu
 # INCS = vec3.h
 
 rayTracing: main.o
-	$(NVCC) -o rayTracing main.o
+	$(NVCC) $(GENCODE_FLAGS) -o rayTracing main.o
 
 main.o: $(SRCS) $(INCS)
-	$(NVCC) -o main.o -c main.cu
+	$(NVCC) $(GENCODE_FLAGS) -o main.o -c main.cu
 
 img.ppm: rayTracing
 	rm -f img.ppm
